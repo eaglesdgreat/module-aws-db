@@ -37,17 +37,27 @@ data "aws_security_group" "default" {
 
 # Our RDS database instance
 resource "aws_db_instance" "mysql-db" {
-  allocated_storage = 20
+  allocated_storage = 20 # Free tier eligible
   storage_type      = "gp2"
   engine            = "mysql"
-  engine_version    = "5.7"
-  instance_class    = "db.t2.micro"
+  engine_version    = "8.0"
+  instance_class    = "db.t3.micro" # Free tier eligible
   # name              = var.mysql_database
   identifier = "microservices-mysql"
 
   username             = var.mysql_user
   password             = var.mysql_password
-  parameter_group_name = "default.mysql5.7"
+  parameter_group_name = "default.mysql8.0"
+
+  # Free tier compatible settings
+  max_allocated_storage = 20    # Prevent auto-scaling beyond free tier
+  storage_encrypted     = false # Encryption not available in free tier
+  multi_az              = false # Multi-AZ not available in free tier
+
+  # Backup settings (reduce costs)
+  backup_retention_period = 1             # Keep backups for 1 day only
+  backup_window           = "03:00-04:00" # Off-peak hours
+  maintenance_window      = "sun:04:00-sun:05:00"
 
   skip_final_snapshot = true
 
@@ -64,11 +74,15 @@ resource "aws_elasticache_subnet_group" "redis-subnet-group" {
 resource "aws_elasticache_cluster" "redis-db" {
   cluster_id           = "microservices-redis"
   engine               = "redis"
-  node_type            = "cache.m4.large"
+  node_type            = "cache.t3.micro" # Free tier eligible
   num_cache_nodes      = 1
-  parameter_group_name = "default.redis3.2"
-  engine_version       = "3.2.10"
+  parameter_group_name = "default.redis6.2"
+  engine_version       = "6.2"
   port                 = 6379
+
+  # Free tier compatible settings
+  snapshot_retention_limit = 1 # Keep only 1 snapshot
+  maintenance_window       = "sun:04:00-sun:05:00"
 
   subnet_group_name  = aws_elasticache_subnet_group.redis-subnet-group.name
   security_group_ids = [aws_security_group.db-security-group.id]
